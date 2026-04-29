@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dark Pattern Escape</title>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+/* === RESET === */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* === ROOT VARS === */
+:root {
+  --ink:      #0A0A0A;
+  --paper:    #F4F1E8;
+  --card-bg:  #FFFFFF;
+  --y:        #FFE135;
+  --r:        #FF3535;
+  --g:        #00D46A;
+  --b:        #1B4FFF;
+  --p:        #CC44FF;
+  --o:        #FF7A00;
+  --border:   2.5px solid var(--ink);
+  --sh:       4px 4px 0 var(--ink);
+  --sh-lg:    6px 6px 0 var(--ink);
+  --fh:       'Unbounded', sans-serif;
+  --fb:       'Space Mono', monospace;
+}
+
+body {
+  background: var(--paper);
+  font-family: var(--fb);
+  min-height: 100vh;
+  color: var(--ink);
+  overflow-x: hidden;
+}
+
+/* === HEADER === */
+#hdr {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.game-brand {
+  font-family: var(--fh);
+  font-weight: 900;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hud { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+
+.badge {
+  font-family: var(--fh);
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.3rem 0.75rem;
+  border: var(--border);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.badge-dark  { background: var(--ink); color: var(--paper); }
+.badge-gold  { background: var(--y);   color: var(--ink);   }
+.badge-red   { background: var(--r);   color: #fff;         }
+
+/* === PROGRESS PIPS === */
+#pips {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  display: flex;
+  gap: 5px;
+}
+.pip {
+  flex: 1; height: 5px;
+  background: var(--card-bg);
+  border: 1.5px solid var(--ink);
+  transition: background 0.3s;
+}
+.pip.done   { background: var(--ink); }
+.pip.active { background: var(--y);   }
+
+/* === MAIN === */
+#main {
+  max-width: 700px;
+  margin: 1.5rem auto 3rem;
+  padding: 0 1rem;
+}
+
+/* === LEVEL CARD === */
+#card {
+  background: var(--card-bg);
+  border: var(--border);
+  box-shadow: var(--sh-lg);
+  padding: 2.25rem 2rem;
+  position: relative;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-tag {
+  position: absolute;
+  top: -15px;
+  font-family: var(--fh);
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 0.22rem 0.8rem;
+  border: var(--border);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.tag-level { left: 1.5rem;  background: var(--y); }
+.tag-pattern { right: 1.5rem; background: var(--r); color: #fff; }
+
+/* === CARD ANIMATIONS === */
+@keyframes shake {
+  0%,100%{ transform:translateX(0) rotate(0); }
+  15%    { transform:translateX(-9px) rotate(-1.2deg); }
+  30%    { transform:translateX(9px)  rotate(1.2deg); }
+  45%    { transform:translateX(-6px); }
+  60%    { transform:translateX(6px); }
+  80%    { transform:translateX(-3px); }
+}
+@keyframes flashRed  { 0%,100%{ background:#fff; } 50%{ background:#FFECEC; } }
+@keyframes flashGreen{ 0%,100%{ background:#fff; } 50%{ background:#EAFFEE; } }
+@keyframes popIn {
+  0%  { opacity:0; transform:scale(0.88) translateY(10px); }
+  100%{ opacity:1; transform:scale(1) translateY(0); }
+}
+
+#card.shake       { animation: shake 0.45s ease; }
+#card.flash-red   { animation: flashRed   0.35s ease; }
+#card.flash-green { animation: flashGreen 0.35s ease; }
+
+/* === WRONG MESSAGE TOAST === */
+#toast {
+  position: fixed;
+  top: 1.2rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(-90px);
+  background: var(--ink);
+  color: var(--y);
+  font-family: var(--fh);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.65rem 1.4rem;
+  border: 2px solid var(--y);
+  z-index: 900;
+  transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+#toast.show { transform: translateX(-50%) translateY(0); }
+
+/* === EXPLANATION OVERLAY === */
+#exp-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 600;
+  padding: 1rem;
+}
+#exp-overlay.show { display: flex; animation: fadeIn 0.2s ease; }
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+.exp-card {
+  background: var(--paper);
+  border: var(--border);
+  box-shadow: var(--sh-lg);
+  padding: 2rem;
+  max-width: 460px;
+  width: 100%;
+  animation: popIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+.exp-badge {
+  display: inline-block;
+  background: var(--g);
+  border: var(--border);
+  font-family: var(--fh);
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.2rem 0.7rem;
+  margin-bottom: 1rem;
+  letter-spacing: 0.1em;
+}
+.exp-pattern-name {
+  font-family: var(--fh);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--r);
+  margin-bottom: 0.4rem;
+  letter-spacing: 0.06em;
+}
+.exp-card h3 {
+  font-family: var(--fh);
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.7rem;
+}
+.exp-card p {
+  font-size: 0.82rem;
+  line-height: 1.75;
+  color: #444;
+  margin-bottom: 1.5rem;
+}
+
+/* === BUTTONS === */
+.btn {
+  font-family: var(--fh);
+  font-weight: 700;
+  cursor: pointer;
+  border: var(--border);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  display: inline-block;
+  position: relative;
+  line-height: 1;
+}
+.btn:hover  { transform: translate(-2px,-2px); box-shadow: var(--sh-lg); }
+.btn:active { transform: translate(3px,3px);   box-shadow: none; }
+
+.btn-xl  { font-size:1rem;   padding:1rem 2.5rem;  box-shadow: var(--sh);    }
+.btn-lg  { font-size:0.85rem;padding:0.8rem 1.8rem; box-shadow: var(--sh);  }
+.btn-md  { font-size:0.75rem;padding:0.6rem 1.3rem; box-shadow: var(--sh);  }
+.btn-sm  { font-size:0.65rem;padding:0.4rem 0.9rem; box-shadow: 2px 2px 0 var(--ink); }
+
+.btn-blue  { background: var(--b); color:#fff; }
+.btn-red   { background: var(--r); color:#fff; }
+.btn-green { background: var(--g); color:var(--ink); }
+.btn-yellow{ background: var(--y); color:var(--ink); }
+.btn-purple{ background: var(--p); color:#fff; }
+.btn-orange{ background: var(--o); color:#fff; }
+.btn-white { background: #fff;     color:var(--ink); }
+
+/* Ghost / deceptive small buttons */
+.btn-ghost {
+  background: transparent;
+  border: 1px solid #ccc;
+  color: #aaa;
+  font-family: var(--fb);
+  font-size: 0.62rem;
+  font-weight: 400;
+  padding: 0.35rem 0.8rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-transform: none;
+  letter-spacing: 0;
+  transition: color 0.15s, border-color 0.15s;
+}
+.btn-ghost:hover { color: var(--ink); border-color: var(--ink); transform: none; box-shadow: none; }
+
+/* Low-contrast hidden button for level 3 */
+.btn-invisible {
+  background: #EDE9DF;
+  color: #D4CFC5;
+  border: 1px solid #E5E1D7;
+  font-family: var(--fb);
+  font-size: 0.7rem;
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+  text-transform: lowercase;
+  letter-spacing: 0;
+  transition: background 0.2s;
+}
+.btn-invisible:hover { background: #E0DCD2; color: #B8B4AA; }
+
+/* Restart */
+#restart-btn {
+  display: block;
+  margin: 1.25rem auto 0;
+  font-family: var(--fh);
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.55rem 1.4rem;
+  background: transparent;
+  border: 2px solid var(--ink);
+  cursor: pointer;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: background 0.15s, color 0.15s;
+}
+#restart-btn:hover { background: var(--ink); color: var(--paper); }
+
+/* === LEVEL-SPECIFIC === */
+
+/* L1 Newsletter */
+.nl-logo   { font-family:var(--fh); font-size:1.5rem; font-weight:900; margin-bottom:0.3rem; }
+.nl-logo em{ color:var(--b); font-style:normal; }
+.nl-sub    { font-size:0.8rem; color:#666; margin-bottom:1.8rem; }
+.nl-seal   { border:var(--border); background:var(--y); display:inline-block; padding:0.3rem 0.8rem; font-family:var(--fh); font-size:0.65rem; font-weight:700; margin-bottom:1.5rem; }
+.nl-footer { margin-top:auto; padding-top:1rem; border-top:1px solid #eee; text-align:center; }
+
+/* L2 Confirm shaming */
+.shame-icon { font-size:2.5rem; margin-bottom:0.75rem; }
+.shame-h    { font-family:var(--fh); font-size:1.1rem; font-weight:900; margin-bottom:0.5rem; line-height:1.3; }
+.shame-sub  { font-size:0.82rem; color:#555; margin-bottom:2rem; line-height:1.6; }
+
+/* L3 Hidden */
+.l3-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin: 1.5rem 0;
+}
+.l3-grid .btn { text-align:center; }
+
+/* L4 Moving button */
+#move-arena {
+  border: 2px dashed #ccc;
+  position: relative;
+  height: 240px;
+  overflow: hidden;
+  margin: 1rem 0;
+  background: repeating-linear-gradient(
+    45deg, transparent, transparent 10px,
+    rgba(0,0,0,0.015) 10px, rgba(0,0,0,0.015) 20px
+  );
+}
+#dodge-btn {
+  position: absolute;
+  transition: left 0.1s ease, top 0.1s ease;
+}
+#corner-x {
+  display: none;
+  position: absolute;
+  bottom: 10px; right: 10px;
+  font-size: 0.6rem;
+  color: #ccc;
+  background: transparent;
+  border: 1px solid #ddd;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+  font-family: var(--fb);
+}
+
+/* L5 Fake loading */
+.loading-title { font-family:var(--fh); font-size:1.1rem; font-weight:900; margin-bottom:0.4rem; }
+.loading-sub   { font-size:0.78rem; color:#666; margin-bottom:1.5rem; }
+.prog-track {
+  width:100%; height:30px;
+  background:#f0f0f0;
+  border: var(--border);
+  overflow:hidden;
+}
+.prog-fill {
+  height:100%;
+  background: var(--b);
+  width:0%;
+  transition: width 0.12s linear;
+}
+.prog-label { font-size:0.68rem; color:#888; text-align:center; margin-top:0.4rem; margin-bottom:1.5rem; }
+.countdown-bar {
+  background: var(--r);
+  color: #fff;
+  font-family: var(--fh);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 0.6rem;
+  border: var(--border);
+  margin-bottom: 1rem;
+  animation: pulse 0.9s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.8} }
+#skip-btn {
+  opacity:0;
+  pointer-events:none;
+  transition: opacity 0.25s;
+  font-size:0.62rem;
+  padding: 0.25rem 0.6rem;
+  background: transparent;
+  border: 1px solid #ddd;
+  color: #bbb;
+  cursor: pointer;
+  font-family: var(--fb);
+  display: block;
+  margin: 0.5rem auto;
+  text-decoration: underline;
+}
+#skip-btn.show-skip { opacity:1; pointer-events:all; }
+.offer-boxes { display:flex; gap:0.75rem; flex-wrap:wrap; margin-top:1.5rem; }
+.offer-box {
+  flex:1; min-width:140px;
+  border: var(--border);
+  padding: 0.75rem;
+  background: var(--y);
+  text-align:center;
+  cursor:pointer;
+  font-family:var(--fh);
+  font-size:0.65rem;
+  font-weight:700;
+  transition: transform 0.12s, box-shadow 0.12s;
+  box-shadow: var(--sh);
+  letter-spacing:0.05em;
+}
+.offer-box:hover { transform:translate(-2px,-2px); box-shadow:var(--sh-lg); }
+.offer-box:active{ transform:translate(3px,3px); box-shadow:none; }
+
+/* L6 Checkboxes */
+.cb-header  { font-family:var(--fh); font-size:0.95rem; font-weight:700; margin-bottom:0.35rem; }
+.cb-sub     { font-size:0.78rem; color:#666; margin-bottom:1.25rem; }
+.cb-list    { display:flex; flex-direction:column; gap:0.65rem; margin-bottom:1.5rem; }
+.cb-item    { display:flex; align-items:flex-start; gap:0.65rem; font-size:0.78rem; line-height:1.5; cursor:pointer; }
+.cb-item input[type=checkbox] { width:17px; height:17px; flex-shrink:0; margin-top:2px; cursor:pointer; accent-color:var(--ink); }
+.cb-item.highlight { color:var(--ink); font-weight:700; }
+
+/* L7 Boss */
+.boss-wrap      { text-align:center; }
+.boss-headline  { font-family:var(--fh); font-size:1.1rem; font-weight:900; color:var(--r); margin-bottom:0.25rem; animation: pulse 0.6s infinite; }
+#boss-timer     { font-family:var(--fh); font-size:3rem; font-weight:900; color:var(--r); line-height:1; margin-bottom:1rem; }
+.boss-offer     { border: var(--border); background:var(--y); padding:1rem; margin-bottom:1rem; }
+.boss-offer-ttl { font-family:var(--fh); font-size:0.8rem; font-weight:700; margin-bottom:0.5rem; }
+.boss-btns      { display:flex; gap:0.75rem; justify-content:center; flex-wrap:wrap; margin-bottom:1rem; }
+#boss-exit {
+  position: absolute;
+  bottom: 12px; left: 12px;
+  opacity: 0;
+  pointer-events: none;
+  background: #f0f0f0;
+  color: #bbb;
+  border: 1px solid #ddd;
+  font-size: 0.58rem;
+  padding: 0.2rem 0.45rem;
+  cursor: pointer;
+  font-family: var(--fb);
+  transition: opacity 0.2s;
+}
+#boss-exit.show-exit { opacity:1; pointer-events:all; }
+
+/* === END SCREEN === */
+#end-screen { display:none; text-align:center; padding:1rem 0; }
+#end-screen.show { display:block; animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+.end-trophy { font-size:3rem; margin-bottom:1rem; }
+.end-title  { font-family:var(--fh); font-size:1.5rem; font-weight:900; margin-bottom:0.5rem; }
+.end-sub    { font-size:0.85rem; color:#555; margin-bottom:2rem; line-height:1.7; }
+.score-reveal {
+  border: var(--border);
+  background: var(--y);
+  display: inline-block;
+  padding: 0.75rem 2rem;
+  font-family: var(--fh);
+  font-size: 1.8rem;
+  font-weight: 900;
+  box-shadow: var(--sh-lg);
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 480px) {
+  #card { padding: 1.75rem 1.25rem; }
+  .l3-grid { grid-template-columns: repeat(2,1fr); }
+  #boss-timer { font-size: 2rem; }
+  .btn-xl { font-size:0.85rem; padding:0.85rem 1.75rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<header id="hdr">
+  <div class="game-brand">Dark Pattern<br>Escape ↯</div>
+  <div class="hud">
+    <div class="badge badge-dark">LVL <span id="lvl-num">1</span>/7</div>
+    <div class="badge badge-gold">⬡ <span id="score-val">1000</span></div>
+    <div class="badge badge-red" id="wrongs-badge" style="display:none">✕ <span id="wrongs-val">0</span></div>
+  </div>
+</header>
+
+<!-- ===== LEVEL PROGRESS PIPS ===== -->
+<div id="pips"></div>
+
+<!-- ===== MAIN GAME AREA ===== -->
+<main id="main">
+  <div id="card">
+    <span class="card-tag tag-level">Level <span id="tag-lvl">1</span></span>
+    <span class="card-tag tag-pattern" id="tag-pattern">Loading…</span>
+    <div id="level-area"></div>
+  </div>
+  <button id="restart-btn">↺ Restart Game</button>
+</main>
+
+<!-- ===== WRONG TOAST ===== -->
+<div id="toast">Nice try 😈</div>
+
+<!-- ===== EXPLANATION OVERLAY ===== -->
+<div id="exp-overlay">
+  <div class="exp-card">
+    <div class="exp-badge">✓ ESCAPED!</div>
+    <div class="exp-pattern-name" id="exp-pattern-name">Pattern Name</div>
+    <h3 id="exp-title">Level Complete!</h3>
+    <p id="exp-text">Explanation text here.</p>
+    <button class="btn btn-lg btn-blue" id="exp-next-btn">Next Level →</button>
+  </div>
+</div>
+
+<!-- ===== END SCREEN ===== -->
+<div id="end-screen">
+  <div class="end-trophy">🏆</div>
+  <div class="end-title">You Escaped!</div>
+  <div class="end-sub">You survived 7 levels of dark UX patterns.<br>Sadly, most people don't.</div>
+  <div class="score-reveal" id="final-score">1000 pts</div>
+  <br>
+  <button class="btn btn-xl btn-blue" id="play-again-btn">Play Again</button>
+</div>
+
+<script>
+/* ================================================================
+   GAME ENGINE
+   ================================================================ */
+
+const state = {
+  level: 0,       // 0-indexed
+  score: 1000,
+  wrongClicks: 0,
+  levelStart: Date.now(),
+  timers: [],     // all setInterval / setTimeout IDs
+  moveAttempts: 0 // for level 4
+};
+
+const WRONG_MSGS = [
+  "Nice try 😈",
+  "Haha, nope.",
+  "That's the wrong one, champ.",
+  "Almost… but no.",
+  "We thought you'd click that.",
+  "You're only making us stronger.",
+  "The exit is... elsewhere.",
+  "Error 404: Good Decision Not Found",
+  "Congrats! You clicked the wrong thing!",
+  "Bold strategy. Zero results.",
+  "Oops! You renewed for 5 more years.",
+  "That button was a trap. Surprised?",
+];
+
+function rndMsg() {
+  return WRONG_MSGS[Math.floor(Math.random() * WRONG_MSGS.length)];
+}
+
+/* -------- TIMER MANAGEMENT -------- */
+function addTimer(id) { state.timers.push(id); }
+function clearAllTimers() {
+  state.timers.forEach(id => { clearInterval(id); clearTimeout(id); });
+  state.timers = [];
+}
+
+/* -------- TOAST -------- */
+let toastTimeout = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  if (toastTimeout) clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+/* -------- CARD ANIMATIONS -------- */
+function shakeCard() {
+  const c = document.getElementById('card');
+  c.classList.remove('shake', 'flash-red');
+  void c.offsetWidth; // reflow
+  c.classList.add('shake', 'flash-red');
+  setTimeout(() => c.classList.remove('shake', 'flash-red'), 450);
+}
+
+function greenFlash() {
+  const c = document.getElementById('card');
+  c.classList.add('flash-green');
+  setTimeout(() => c.classList.remove('flash-green'), 350);
+}
+
+/* -------- WRONG CLICK -------- */
+function wrongClick(msg) {
+  state.wrongClicks++;
+  state.score = Math.max(0, state.score - 50);
+  updateHUD();
+  showToast(msg || rndMsg());
+  shakeCard();
+}
+
+/* -------- HUD -------- */
+function updateHUD() {
+  document.getElementById('score-val').textContent = state.score;
+  document.getElementById('lvl-num').textContent   = state.level + 1;
+  document.getElementById('tag-lvl').textContent   = state.level + 1;
+  const wb = document.getElementById('wrongs-badge');
+  if (state.wrongClicks > 0) {
+    wb.style.display = '';
+    document.getElementById('wrongs-val').textContent = state.wrongClicks;
+  }
+  // pips
+  const pips = document.querySelectorAll('.pip');
+  pips.forEach((p, i) => {
+    p.classList.remove('done', 'active');
+    if (i < state.level) p.classList.add('done');
+    else if (i === state.level) p.classList.add('active');
+  });
+}
+
+/* -------- CORRECT CLICK -------- */
+function correctClick() {
+  clearAllTimers();
+  greenFlash();
+  const timeBonus = Math.max(0, 300 - Math.floor((Date.now() - state.levelStart) / 1000) * 8);
+  state.score += timeBonus;
+  updateHUD();
+  const lvl = LEVELS[state.level];
+  // show explanation
+  document.getElementById('exp-pattern-name').textContent = lvl.pattern;
+  document.getElementById('exp-title').textContent        = lvl.expTitle;
+  document.getElementById('exp-text').textContent         = lvl.expText;
+  const isLast = state.level >= LEVELS.length - 1;
+  const nextBtn = document.getElementById('exp-next-btn');
+  nextBtn.textContent = isLast ? 'See Final Score →' : 'Next Level →';
+  document.getElementById('exp-overlay').classList.add('show');
+}
+
+document.getElementById('exp-next-btn').addEventListener('click', () => {
+  document.getElementById('exp-overlay').classList.remove('show');
+  state.level++;
+  if (state.level >= LEVELS.length) {
+    showEndScreen();
+  } else {
+    loadLevel(state.level);
+  }
+});
+
+/* -------- END SCREEN -------- */
+function showEndScreen() {
+  document.getElementById('card').style.display  = 'none';
+  document.getElementById('restart-btn').style.display = 'none';
+  const es = document.getElementById('end-screen');
+  es.classList.add('show');
+  document.getElementById('final-score').textContent = state.score + ' pts';
+  // insert into main
+  document.getElementById('main').appendChild(es);
+}
+
+/* -------- RESTART -------- */
+function restartGame() {
+  clearAllTimers();
+  state.level       = 0;
+  state.score       = 1000;
+  state.wrongClicks = 0;
+  state.levelStart  = Date.now();
+  document.getElementById('wrongs-badge').style.display = 'none';
+  document.getElementById('card').style.display = '';
+  document.getElementById('restart-btn').style.display = '';
+  document.getElementById('end-screen').classList.remove('show');
+  loadLevel(0);
+}
+
+document.getElementById('restart-btn').addEventListener('click', restartGame);
+document.getElementById('play-again-btn').addEventListener('click', restartGame);
+
+/* -------- LOAD LEVEL -------- */
+function loadLevel(idx) {
+  clearAllTimers();
+  state.levelStart = Date.now();
+  state.moveAttempts = 0;
+  const lvl = LEVELS[idx];
+  document.getElementById('tag-pattern').textContent = lvl.pattern;
+  const area = document.getElementById('level-area');
+  area.innerHTML = lvl.html();
+  updateHUD();
+  if (lvl.init) lvl.init();
+  // build pips
+  const pipsEl = document.getElementById('pips');
+  pipsEl.innerHTML = LEVELS.map((_,i) => `<div class="pip${i < idx ? ' done' : i === idx ? ' active' : ''}"></div>`).join('');
+}
+
+/* ================================================================
+   LEVELS ARRAY
+   ================================================================ */
+
+const LEVELS = [
+
+  /* ======================== LEVEL 1 ========================
+     Dark Pattern: Misleading CTA Hierarchy
+     Big green "YES" button, confusing "Cancel" that confirms,
+     and a tiny ghost "unsubscribe" link that's the real exit. */
+  {
+    pattern:  'Misleading Buttons',
+    expTitle: 'You spotted the trick!',
+    expText:  '"Cancel" was labelled to sound like cancelling your action — not your subscription. The real unsubscribe link was styled to look broken and irrelevant. This is called CTA hierarchy manipulation.',
+    html: () => `
+      <div class="nl-logo"><em>MEGA</em>CORP™ Newsletter</div>
+      <div class="nl-sub">You are subscribed to 47 newsletters. Manage below.</div>
+      <div class="nl-seal">★ PREMIUM MEMBER CONFIRMED</div>
+      <div style="display:flex;flex-direction:column;align-items:flex-start;gap:0.75rem;">
+        <button class="btn btn-xl btn-green" data-wrong="🎉 Premium activated! Now you get 10 emails/day.">
+          ✓ Keep My Premium Subscription
+        </button>
+        <button class="btn btn-lg btn-blue" data-wrong="That just cancelled your cancellation request. Clever!">
+          Cancel Unsubscribe Request
+        </button>
+        <button class="btn btn-md btn-yellow" data-wrong="You just upgraded to the Platinum plan. Congrats!">
+          Manage Preferences
+        </button>
+      </div>
+      <div class="nl-footer">
+        <button class="btn-ghost" data-correct>unsubscribe</button>
+      </div>`,
+    init: () => attachHandlers()
+  },
+
+  /* ======================== LEVEL 2 ========================
+     Dark Pattern: Confirm Shaming
+     The "stay" button is huge and encouraging, the "leave" option
+     is written to make you feel guilty and stupid. */
+  {
+    pattern:  'Confirm Shaming',
+    expTitle: 'Shame detector activated!',
+    expText:  '"Confirm shaming" labels the dismissal option with self-deprecating language to make you feel bad for leaving. Real example: "No thanks, I don\'t want to save money." Your feelings were weaponised.',
+    html: () => `
+      <div style="text-align:center;">
+        <div class="shame-icon">😢</div>
+        <div class="shame-h">Are you SURE you want to cancel?</div>
+        <div class="shame-sub">
+          You'll lose access to unlimited joy, happiness, and<br>
+          12 weekly newsletters carefully crafted just for you.<br>
+          <strong>This offer will never return.</strong>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:0.75rem;">
+          <button class="btn btn-xl btn-purple" data-wrong="We knew you'd stay. You're so predictable 💜">
+            No! I Changed My Mind. Keep Me Subscribed!
+          </button>
+          <button class="btn btn-lg btn-orange" data-wrong="That reopened your account. Oops!">
+            Actually, Tell Me More First
+          </button>
+          <button class="btn-ghost" data-correct style="margin-top:0.5rem;">
+            Yes, I hate joy and want to cancel
+          </button>
+        </div>
+      </div>`,
+    init: () => attachHandlers()
+  },
+
+  /* ======================== LEVEL 3 ========================
+     Dark Pattern: Hidden / Low-Contrast Exit Button
+     A busy page of bright buttons. One nearly-invisible button
+     is the real escape — blending into the white background. */
+  {
+    pattern:  'Hidden Exit Button',
+    expTitle: 'Eagle eyes!',
+    expText:  'Low-contrast exits are intentionally styled to be invisible. WCAG accessibility guidelines require 4.5:1 contrast ratio. This button had roughly 1.3:1 — legally inaccessible, deliberately deceptive.',
+    html: () => `
+      <div style="font-family:var(--fh);font-size:0.95rem;font-weight:700;margin-bottom:0.35rem;">Find the exit button.</div>
+      <div style="font-size:0.78rem;color:#666;margin-bottom:1.25rem;">It's somewhere on this page. Probably.</div>
+      <div class="l3-grid">
+        <button class="btn btn-md btn-blue"   data-wrong="That was 'Buy More'. Good work spending $49.">BUY NOW</button>
+        <button class="btn btn-md btn-red"    data-wrong="That sent your data to 900 partners. Hope that's ok.">SUBSCRIBE</button>
+        <button class="btn btn-md btn-green"  data-wrong="Upgraded! Your card was charged $12.99/mo.">UPGRADE ★</button>
+        <button class="btn btn-md btn-yellow" data-wrong="You clicked 'Confirm All'. Classic.">CONFIRM ALL</button>
+        <button class="btn btn-md btn-purple" data-wrong="That enrolled you in the rewards program. Congrats!">JOIN REWARDS</button>
+        <button class="btn-invisible" data-correct>exit</button>
+        <button class="btn btn-md btn-orange" data-wrong="That was 'Extend Trial' — 6 more months, billed now.">FREE TRIAL</button>
+        <button class="btn btn-md btn-blue"   data-wrong="You requested a callback. Expect calls 24/7.">CONTACT US</button>
+        <button class="btn btn-md btn-red"    data-wrong="That was 'Refer Friends'. They'll thank you (or not).">SHARE ♥</button>
+      </div>`,
+    init: () => attachHandlers()
+  },
+
+  /* ======================== LEVEL 4 ========================
+     Dark Pattern: Moving / Shifting UI
+     The escape button flees from the cursor. After 3 near-misses,
+     a tiny static × appears briefly in the corner. */
+  {
+    pattern:  'Moving Buttons',
+    expTitle: 'You caught it!',
+    expText:  'Moving UI elements exploit Fitts\'s Law — targets that move are exponentially harder to click. Some dark-pattern sites literally animate the "cancel" button away from your cursor on hover.',
+    html: () => `
+      <div style="font-family:var(--fh);font-size:0.95rem;font-weight:700;margin-bottom:0.35rem;">Click the ESCAPE button.</div>
+      <div style="font-size:0.78rem;color:#666;margin-bottom:0.75rem;">Seems simple enough…</div>
+      <div id="move-arena">
+        <button class="btn btn-lg btn-red" id="dodge-btn"
+          style="left:120px;top:80px;">
+          ESCAPE →
+        </button>
+        <button id="corner-x">× exit</button>
+      </div>
+      <div style="font-size:0.68rem;color:#aaa;margin-top:0.5rem;font-style:italic;">
+        Hint: it gets tired eventually...
+      </div>`,
+    init: () => initLevel4()
+  },
+
+  /* ======================== LEVEL 5 ========================
+     Dark Pattern: Fake Loading Screen + Countdown Pressure
+     A progress bar that loops forever, a scary countdown,
+     and a tiny "skip" link that blinks in and out. */
+  {
+    pattern:  'Fake Loading + Countdown',
+    expTitle: 'You waited it out!',
+    expText:  'Fake progress bars create an illusion of activity so you wait instead of leaving. Combined with a countdown timer, they manufacture urgency. The "skip" option was real — but barely visible.',
+    html: () => `
+      <div class="countdown-bar" id="countdown-bar">⏰ Exclusive offer expires in: <span id="cdtimer">10</span>s</div>
+      <div class="loading-title">Processing Your Cancellation…</div>
+      <div class="loading-sub">Please wait while we pretend to do something.</div>
+      <div class="prog-track"><div class="prog-fill" id="prog-fill"></div></div>
+      <div class="prog-label" id="prog-label">Initialising… 0%</div>
+      <button id="skip-btn" data-correct>skip ›</button>
+      <div class="offer-boxes">
+        <div class="offer-box" data-wrong="You accepted the MEGA deal! $199/year billed now.">
+          🔥 MEGA DEAL<br><small style="font-size:0.75rem;font-family:var(--fb);font-weight:400">50% off — TODAY ONLY</small>
+        </div>
+        <div class="offer-box" data-wrong="You took the deal. It expires in 2033.">
+          ⚡ LAST CHANCE<br><small style="font-size:0.75rem;font-family:var(--fb);font-weight:400">Don't miss out!</small>
+        </div>
+      </div>`,
+    init: () => initLevel5()
+  },
+
+  /* ======================== LEVEL 6 ========================
+     Dark Pattern: Pre-selected Checkboxes + Double Negatives
+     All boxes are pre-ticked with opt-in wording. One is
+     UNCHECKED and says "Remove me" — check it and submit. */
+  {
+    pattern:  'Pre-checked Boxes',
+    expTitle: 'You read the fine print!',
+    expText:  'Pre-checked consent boxes are illegal under GDPR in the EU. Combined with confusing double-negatives ("Uncheck to not opt out of non-commercial emails"), they trap users into sharing data.',
+    html: () => `
+      <div class="cb-header">Update Your Privacy Preferences</div>
+      <div class="cb-sub">Please review and confirm your communication settings below.</div>
+      <div class="cb-list" id="cb-list">
+        <label class="cb-item">
+          <input type="checkbox" checked id="cb1">
+          <span>Send me daily emails with exclusive offers and partner promotions</span>
+        </label>
+        <label class="cb-item">
+          <input type="checkbox" checked id="cb2">
+          <span>Do not unsubscribe me from marketing communications</span>
+        </label>
+        <label class="cb-item">
+          <input type="checkbox" checked id="cb3">
+          <span>Share my browsing data with 2,400+ trusted advertising partners</span>
+        </label>
+        <label class="cb-item">
+          <input type="checkbox" checked id="cb4">
+          <span>Enrol me in the automatic loyalty renewal programme</span>
+        </label>
+        <label class="cb-item cb-target">
+          <input type="checkbox" id="cb-escape">
+          <span>Remove me from <em>all</em> mailing lists permanently</span>
+        </label>
+      </div>
+      <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-lg btn-blue" id="cb-submit-btn">Save Preferences</button>
+        <span style="font-size:0.68rem;color:#aaa;">(Check "Remove me" first)</span>
+      </div>`,
+    init: () => initLevel6()
+  },
+
+  /* ======================== LEVEL 7 ========================
+     Dark Pattern: THE FINAL BOSS — All Patterns Combined
+     Countdown, moving elements, shame, fake urgency.
+     A tiny barely-visible "× exit" blinks in the corner. */
+  {
+    pattern:  'All Patterns — BOSS',
+    expTitle: 'BOSS DEFEATED! 🏆',
+    expText:  'Real dark pattern-heavy websites combine all of these techniques simultaneously. The overload makes users give up and accept the defaults — which is exactly the point. You noticed. Most don\'t.',
+    html: () => `
+      <div class="boss-wrap">
+        <div class="boss-headline">⚠️ FINAL OFFER — DO NOT CLOSE ⚠️</div>
+        <div id="boss-timer">00:15</div>
+        <div class="boss-offer">
+          <div class="boss-offer-ttl">🎁 You have been specially selected!</div>
+          <div style="font-size:0.78rem;line-height:1.6;">
+            Stay subscribed and receive <strong>∞ happiness</strong>, <strong>zero regrets</strong>,
+            and a <strong>FREE tote bag*</strong> (*tote bag not included).
+          </div>
+        </div>
+        <div class="boss-btns">
+          <button class="btn btn-xl btn-green" data-wrong="You just bought a lifetime subscription for $999. The offer was real!">
+            YES! GIVE ME EVERYTHING! ✨
+          </button>
+          <button class="btn btn-lg btn-orange" data-wrong="That extended your contract by 3 years. 'Maybe' = yes in our terms.">
+            MAYBE LATER
+          </button>
+          <button class="btn btn-lg btn-purple" data-wrong="'I Need Space' enrolled you in the Premium Space tier. $49/mo.">
+            I NEED SPACE
+          </button>
+        </div>
+        <div style="font-size:0.7rem;color:#aaa;">
+          By staying on this page you agree to our <u>Terms</u>, <u>Privacy Policy</u>,
+          and <u>Soul Transfer Agreement (2024)</u>.
+        </div>
+      </div>
+      <button id="boss-exit" data-correct>× exit</button>`,
+    init: () => initLevel7()
+  }
+
+]; // end LEVELS
+
+/* ================================================================
+   ATTACH GENERIC HANDLERS
+   (data-correct / data-wrong on any element in #level-area)
+   ================================================================ */
+function attachHandlers() {
+  const area = document.getElementById('level-area');
+  area.querySelectorAll('[data-correct]').forEach(el => {
+    el.addEventListener('click', () => correctClick());
+  });
+  area.querySelectorAll('[data-wrong]').forEach(el => {
+    el.addEventListener('click', () => wrongClick(el.dataset.wrong));
+  });
+}
+
+/* ================================================================
+   LEVEL 4 — MOVING BUTTON LOGIC
+   ================================================================ */
+function initLevel4() {
+  const arena  = document.getElementById('move-arena');
+  const btn    = document.getElementById('dodge-btn');
+  const corner = document.getElementById('corner-x');
+  let missCount = 0;
+  let frozen    = false;
+  let freezeTimer = null;
+
+  function randomPos() {
+    const aW = arena.offsetWidth  - btn.offsetWidth  - 10;
+    const aH = arena.offsetHeight - btn.offsetHeight - 10;
+    return {
+      x: Math.max(5, Math.min(aW, Math.floor(Math.random() * aW))),
+      y: Math.max(5, Math.min(aH, Math.floor(Math.random() * aH)))
+    };
+  }
+
+  function moveBtn(e) {
+    if (frozen) return;
+    const rect = arena.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const bx = parseFloat(btn.style.left) + btn.offsetWidth / 2;
+    const by = parseFloat(btn.style.top)  + btn.offsetHeight / 2;
+    const dx = bx - mx;
+    const dy = by - my;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist < 80) {
+      missCount++;
+      if (missCount >= 3) {
+        showCorner();
+        missCount = 0;
+      }
+      const aW = arena.offsetWidth  - btn.offsetWidth  - 10;
+      const aH = arena.offsetHeight - btn.offsetHeight - 10;
+      let nx = bx + (dx / dist) * 120;
+      let ny = by + (dy / dist) * 120;
+      nx = Math.max(5, Math.min(aW, nx - btn.offsetWidth / 2));
+      ny = Math.max(5, Math.min(aH, ny - btn.offsetHeight / 2));
+      btn.style.left = nx + 'px';
+      btn.style.top  = ny + 'px';
+    }
+  }
+
+  function showCorner() {
+    corner.style.display = 'block';
+    if (freezeTimer) clearTimeout(freezeTimer);
+    freezeTimer = setTimeout(() => {
+      corner.style.display = 'none';
+    }, 2200);
+    addTimer(freezeTimer);
+  }
+
+  // Also move randomly every 2.5s
+  const autoMove = setInterval(() => {
+    if (!frozen) {
+      const p = randomPos();
+      btn.style.left = p.x + 'px';
+      btn.style.top  = p.y + 'px';
+    }
+  }, 2500);
+  addTimer(autoMove);
+
+  arena.addEventListener('mousemove', moveBtn);
+
+  // Wrong: clicking the arena itself (not the button)
+  arena.addEventListener('click', (e) => {
+    if (e.target === arena) wrongClick("You clicked empty air. Impressive.");
+  });
+
+  btn.addEventListener('click', () => wrongClick("It dodged! How does it KNOW?!"));
+
+  corner.addEventListener('click', () => correctClick());
+}
+
+/* ================================================================
+   LEVEL 5 — FAKE LOADING + COUNTDOWN
+   ================================================================ */
+function initLevel5() {
+  const fill   = document.getElementById('prog-fill');
+  const label  = document.getElementById('prog-label');
+  const skipBtn= document.getElementById('skip-btn');
+  const cdEl   = document.getElementById('cdtimer');
+  let progress = 0;
+  let cdTime   = 10;
+
+  const labels = [
+    "Initialising request…",
+    "Contacting servers…",
+    "Verifying identity…",
+    "Checking account status…",
+    "Almost there…",
+    "Just a moment more…",
+    "Wrapping up…",
+    "99% done! Hold on…"
+  ];
+
+  // Progress bar that loops
+  const progInterval = setInterval(() => {
+    progress += 1.2;
+    if (progress > 99) {
+      progress = 0;
+      label.textContent = "Starting over (sorry)… 0%";
+    } else {
+      label.textContent = labels[Math.floor(progress / 14)] + ' ' + Math.floor(progress) + '%';
+    }
+    fill.style.width = progress + '%';
+  }, 120);
+  addTimer(progInterval);
+
+  // Countdown
+  const cdInterval = setInterval(() => {
+    cdTime--;
+    cdEl.textContent = cdTime;
+    if (cdTime <= 0) {
+      cdEl.textContent = '0';
+      clearInterval(cdInterval);
+      document.getElementById('countdown-bar').textContent = '🔥 OFFER EXPIRED — RENEWING AUTOMATICALLY…';
+    }
+  }, 1000);
+  addTimer(cdInterval);
+
+  // Skip button flickers
+  function flashSkip() {
+    skipBtn.classList.add('show-skip');
+    const hide = setTimeout(() => skipBtn.classList.remove('show-skip'), 1400);
+    addTimer(hide);
+  }
+  const skipCycle = setInterval(flashSkip, 3800);
+  addTimer(skipCycle);
+  // first flash after 2s
+  const firstFlash = setTimeout(flashSkip, 2000);
+  addTimer(firstFlash);
+
+  skipBtn.addEventListener('click', () => correctClick());
+
+  // Wrong clicks on offer boxes
+  document.querySelectorAll('.offer-box[data-wrong]').forEach(el => {
+    el.addEventListener('click', () => wrongClick(el.dataset.wrong));
+  });
+}
+
+/* ================================================================
+   LEVEL 6 — PRE-CHECKED CHECKBOXES
+   ================================================================ */
+function initLevel6() {
+  const submitBtn = document.getElementById('cb-submit-btn');
+  const escBox    = document.getElementById('cb-escape');
+
+  submitBtn.addEventListener('click', () => {
+    if (escBox.checked) {
+      correctClick();
+    } else {
+      wrongClick("You saved without checking 'Remove me'. You're getting more emails now.");
+      // Make bad checkboxes re-check themselves
+      ['cb1','cb2','cb3','cb4'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.checked = true;
+      });
+    }
+  });
+
+  // Wrong: clicking bad checkboxes to uncheck them triggers light shake
+  ['cb1','cb2','cb3','cb4'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', () => {
+      if (!el.checked) {
+        setTimeout(() => { el.checked = true; }, 300);
+        showToast("That checkbox springs back. Hmm.");
+      }
+    });
+  });
+}
+
+/* ================================================================
+   LEVEL 7 — FINAL BOSS
+   ================================================================ */
+function initLevel7() {
+  const timerEl = document.getElementById('boss-timer');
+  const exitBtn = document.getElementById('boss-exit');
+  let seconds   = 15;
+
+  // Countdown
+  const tick = setInterval(() => {
+    seconds--;
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    timerEl.textContent = `${m}:${s}`;
+    if (seconds <= 0) {
+      clearInterval(tick);
+      timerEl.textContent = '💀 TOO LATE';
+      timerEl.style.fontSize = '1.5rem';
+      wrongClick("Time's up! Auto-renewed for $299/year. Thanks for your loyalty.");
+      seconds = 15; // reset
+    }
+  }, 1000);
+  addTimer(tick);
+
+  // Exit button flickers in and out
+  function showExit() {
+    // Randomise position within card
+    const card = document.getElementById('card');
+    const maxX = card.offsetWidth  - 70;
+    const maxY = card.offsetHeight - 40;
+    exitBtn.style.left   = Math.floor(Math.random() * maxX) + 'px';
+    exitBtn.style.top    = Math.floor(Math.random() * maxY) + 'px';
+    exitBtn.style.bottom = 'auto';
+    exitBtn.style.right  = 'auto';
+    exitBtn.classList.add('show-exit');
+    const hide = setTimeout(() => exitBtn.classList.remove('show-exit'), 1600);
+    addTimer(hide);
+  }
+
+  const flickerCycle = setInterval(showExit, 3200);
+  addTimer(flickerCycle);
+  const firstShow = setTimeout(showExit, 1800);
+  addTimer(firstShow);
+
+  exitBtn.addEventListener('click', () => correctClick());
+
+  // Wrong click handlers
+  attachHandlers();
+}
+
+/* ================================================================
+   INIT
+   ================================================================ */
+loadLevel(0);
+</script>
+</body>
+</html>
